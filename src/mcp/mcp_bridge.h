@@ -77,6 +77,7 @@ private:
     QJsonObject toolSourceModules(const QJsonObject& args);
     QJsonObject toolHexRead(const QJsonObject& args);
     QJsonObject toolHexWrite(const QJsonObject& args);
+    QJsonObject toolRttiLookup(const QJsonObject& args);
     QJsonObject toolStatusSet(const QJsonObject& args);
     QJsonObject toolUiAction(const QJsonObject& args);
     QJsonObject toolTreeSearch(const QJsonObject& args);

@@ -115,6 +115,7 @@ Built-in [Model Context Protocol](https://modelcontextprotocol.io/) bridge via `
 | `sourceSwitch` | Switch the active data source |
 | `hexRead` | Read bytes at an address |
 | `hexWrite` | Write bytes at an address |
+| `rtti.lookup` | Walk C++ RTTI from a vtable address and return ABI, type names, bases, module info, and vtable slots. The address is a vtable, not an object pointer; read the first pointer-sized value from a C++ object to get a common candidate. Supports `abi`: `auto`, `msvc`, or `itanium`. |
 | `statusSet` | Update the status bar text |
 | `uiAction` | Trigger menu actions programmatically |
 | `treeSearch` | Search nodes by name or type |

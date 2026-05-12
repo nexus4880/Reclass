@@ -154,6 +154,8 @@ add_executable(Reclass
     $<$<PLATFORM_ID:Darwin>:src/macos_titlebar.mm>
     src/mcp/mcp_bridge.h
     src/mcp/mcp_bridge.cpp
+    src/mcp/mcp_rtti.h
+    src/mcp/mcp_rtti.cpp
     src/addressparser.h
     src/addressparser.cpp
     src/symbolstore.h
@@ -453,6 +455,13 @@ if(BUILD_TESTING)
     target_include_directories(test_rtti_hint PRIVATE src)
     target_link_libraries(test_rtti_hint PRIVATE ${QT}::Core ${QT}::Test)
     add_test(NAME test_rtti_hint COMMAND test_rtti_hint)
+
+    # ── MCP RTTI response shaping and ABI auto-failure reporting ──
+    add_executable(test_mcp_rtti tests/test_mcp_rtti.cpp
+        src/mcp/mcp_rtti.cpp src/rtti.cpp src/symbolstore.cpp)
+    target_include_directories(test_mcp_rtti PRIVATE src)
+    target_link_libraries(test_mcp_rtti PRIVATE ${QT}::Core ${QT}::Test)
+    add_test(NAME test_mcp_rtti COMMAND test_mcp_rtti)
 
     # ── Tutorial flow simulation ──
     # End-to-end synthetic of selfTest's RcxEditor demo: typed Pointer64
