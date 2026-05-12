@@ -1,4 +1,5 @@
 #include "mcp_bridge.h"
+#include "mcp_rtti.h"
 #include "addressparser.h"
 #include "core.h"
 #include "controller.h"
@@ -552,6 +553,34 @@ QJsonObject McpBridge::handleToolsList(const QJsonValue& id) {
         }}
     });
 
+    // 6. rtti.lookup
+    tools.append(QJsonObject{
+        {"name", "rtti.lookup"},
+        {"description", "Walk C++ RTTI starting from a vtable address and return structured class metadata. "
+                        "The address is a vtable address, not an object pointer. Agents can often obtain a "
+                        "candidate vtable by reading the first pointer-sized value from a C++ object with hex.read. "
+                        "Supports MSVC, Itanium, or auto detection (MSVC first, then Itanium)."},
+        {"inputSchema", QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"tabIndex", QJsonObject{{"type", "integer"},
+                    {"description", "MDI tab index (0-based). Omit for active tab."}}},
+                {"address", QJsonObject{{"type", QJsonArray{"integer", "string"}},
+                    {"description", "Vtable address to inspect. Accepts a decimal number or a hex string like '0x7ff...'."}}},
+                {"baseRelative", QJsonObject{{"type", "boolean"},
+                    {"description", "If true, address is relative to the tree's base address. Default false (absolute VA)."}}},
+                {"pointerSize", QJsonObject{{"type", "integer"},
+                    {"description", "Pointer size in bytes: 4 or 8. Default 8."}}},
+                {"abi", QJsonObject{{"type", "string"},
+                    {"enum", QJsonArray{"auto", "msvc", "itanium"}},
+                    {"description", "RTTI ABI to try. Default auto."}}},
+                {"maxVtableSlots", QJsonObject{{"type", "integer"},
+                    {"description", "Maximum vtable entries to enumerate (clamped to 0..256, default 64)."}}}
+            }},
+            {"required", QJsonArray{"address"}}
+        }}
+    });
+
     // bookmarks.list / add / remove
     tools.append(QJsonObject{
         {"name", "bookmarks.list"},
@@ -1001,6 +1030,7 @@ QJsonObject McpBridge::handleToolsCall(const QJsonValue& id, const QJsonObject& 
     else if (toolName == "source.modules") result = toolSourceModules(args);
     else if (toolName == "hex.read")       result = toolHexRead(args);
     else if (toolName == "hex.write")      result = toolHexWrite(args);
+    else if (toolName == "rtti.lookup")    result = toolRttiLookup(args);
     else if (toolName == "status.set")     result = toolStatusSet(args);
     else if (toolName == "ui.action")      result = toolUiAction(args);
     else if (toolName == "tree.search")   result = toolTreeSearch(args);
@@ -1891,6 +1921,41 @@ QJsonObject McpBridge::toolHexRead(const QJsonObject& args) {
     }
 
     return makeTextResult(dump);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// TOOL: rtti.lookup
+// ════════════════════════════════════════════════════════════════════
+
+QJsonObject McpBridge::toolRttiLookup(const QJsonObject& args) {
+    auto* tab = resolveTab(args);
+    if (!tab) return makeTextResult("No active tab", true);
+
+    auto* doc = tab->doc;
+    auto* prov = doc ? doc->provider.get() : nullptr;
+    if (!prov) return makeTextResult("No provider", true);
+
+    if (!args.contains("address"))
+        return makeTextResult("Missing required 'address' (vtable address)", true);
+
+    int64_t address = parseInteger(args.value("address"));
+    if (args.value("baseRelative").toBool(false))
+        address += (int64_t)doc->tree.baseAddress;
+    if (address < 0)
+        return makeTextResult("address must be non-negative", true);
+
+    int pointerSize = (int)parseInteger(args.value("pointerSize"), 8);
+    QString pointerError;
+    if (!mcpValidateRttiPointerSize(pointerSize, &pointerError))
+        return makeTextResult(pointerError, true);
+
+    QString abi = args.value("abi").toString(QStringLiteral("auto"));
+    if (mcpValidateRttiAbi(abi).isEmpty())
+        return makeTextResult("abi must be 'auto', 'msvc', or 'itanium'", true);
+
+    int maxVtableSlots = qBound(0, (int)parseInteger(args.value("maxVtableSlots"), 64), 256);
+    QJsonObject out = mcpLookupRtti(*prov, (uint64_t)address, pointerSize, abi, maxVtableSlots);
+    return makeTextResult(QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact)));
 }
 
 // ════════════════════════════════════════════════════════════════════
